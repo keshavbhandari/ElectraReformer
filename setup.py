@@ -10,11 +10,26 @@ setup(
     author="Keshav Bhandari",
     author_email='keshavbhandari@gmail.com',
     url='https://github.com/keshavbhandari/Efficient-Pretraining-Of-Transformers',
-    install_requires=[],
+    keywords=[
+        'transformers',
+        'artificial intelligence',
+        'pretraining'
+    ],
+    install_requires=[
+        'electra-pytorch',
+        'torch',
+        'scipy',
+        'sklearn',
+        'axial-positional-embedding>=0.1.0',
+        'einops',
+        'local-attention',
+        'product-key-memory',
+        'numpy',
+        'PrettyTable',
+    ],
     packages=['src'],
     long_description=long_description,
     long_description_content_type='text.markdown',
-    keywords=[],
     classifiers=['License :: OSI Approved :: MIT License'],
     license='MIT'
 )
