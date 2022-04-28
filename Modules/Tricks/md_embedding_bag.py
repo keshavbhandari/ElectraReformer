@@ -14,18 +14,18 @@ from Utils.helper import count_parameters
 
 
 class PrEmbeddingBag(nn.Module):
-    def __init__(self, num_embeddings, embedding_dim=64, base_dim=128):
+    def __init__(self, num_embeddings, proj_embedding_dim=64, base_dim=128):
         super(PrEmbeddingBag, self).__init__()
-        self.embs = nn.Embedding(num_embeddings, embedding_dim)
+        self.embs = nn.Embedding(num_embeddings, proj_embedding_dim)
         torch.nn.init.xavier_uniform_(self.embs.weight)
-        if embedding_dim < base_dim:
-            self.proj = nn.Linear(embedding_dim, base_dim, bias=False)
+        if proj_embedding_dim < base_dim:
+            self.proj = nn.Linear(proj_embedding_dim, base_dim, bias=False)
             torch.nn.init.xavier_uniform_(self.proj.weight)
-        elif embedding_dim == base_dim:
+        elif proj_embedding_dim == base_dim:
             self.proj = nn.Identity()
         else:
             raise ValueError(
-                "Embedding dim " + str(embedding_dim) + " > base dim " + str(base_dim)
+                "Embedding dim " + str(proj_embedding_dim) + " > base dim " + str(base_dim)
             )
 
     def forward(self, input):
@@ -33,7 +33,7 @@ class PrEmbeddingBag(nn.Module):
 
 
 if __name__ == '__main__':
-    embedding = PrEmbeddingBag(num_embeddings=20000, embedding_dim=64, base_dim=128)
+    embedding = PrEmbeddingBag(num_embeddings=20000, proj_embedding_dim=64, base_dim=128)
     count_parameters(embedding)
     data = torch.randint(0, 20000, (4,256))
     out = embedding(data)

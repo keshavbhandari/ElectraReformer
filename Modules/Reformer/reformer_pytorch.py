@@ -12,6 +12,9 @@ from local_attention import LocalAttention
 from axial_positional_embedding import AxialPositionalEmbedding
 from product_key_memory import PKM
 from Modules.Reformer.reversible import ReversibleSequence
+from Modules.Tricks.qr_embedding_bag import QREmbeddingBag
+from Modules.Tricks.md_embedding_bag import PrEmbeddingBag
+from Utils.helper import count_parameters
 
 from einops import rearrange, repeat
 
@@ -723,12 +726,19 @@ class ReformerLM(nn.Module):
                  num_mem_kv = 0, one_value_head = False, emb_dim = None, return_embeddings = False,
                  weight_tie_embedding = False, fixed_position_emb = False, absolute_position_emb = False,
                  axial_position_emb = False, axial_position_shape = None, n_local_attn_heads = 0,
-                 pkm_layers = tuple(), pkm_num_keys = 128):
+                 pkm_layers = tuple(), pkm_num_keys = 128, emb_type = 'default', num_collisions = 5):
         super().__init__()
         emb_dim = default(emb_dim, dim)
         self.max_seq_len = max_seq_len
 
-        self.token_emb = nn.Embedding(num_tokens, emb_dim)
+        if emb_type == "default":
+            self.token_emb = nn.Embedding(num_tokens, emb_dim)
+        elif emb_type == "qr":
+            self.token_emb = QREmbeddingBag(num_categories=num_tokens, embedding_dim=emb_dim, num_collisions=num_collisions)
+        elif emb_type == "md":
+            self.token_emb = PrEmbeddingBag(num_embeddings=num_tokens, proj_embedding_dim=emb_dim//2, base_dim=emb_dim)
+        else:
+            assert emb_type in ['default', 'qr', 'md'], 'emb_type not valid!'
 
         self.to_model_dim = Identity() if emb_dim == dim else nn.Linear(emb_dim, dim)
 

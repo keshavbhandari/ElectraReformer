@@ -1,6 +1,5 @@
 electra-pytorch
 torch
-# transformers==3.0.2
 scipy
 sklearn
 axial-positional-embedding>=0.1.0
