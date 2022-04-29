@@ -1,5 +1,6 @@
 electra-pytorch
 torch
+rotary_embedding_torch
 scipy
 sklearn
 axial-positional-embedding>=0.1.0
