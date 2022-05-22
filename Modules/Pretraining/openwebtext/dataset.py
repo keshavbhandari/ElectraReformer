@@ -1,7 +1,5 @@
-import math
 import os
 import random
-from dataclasses import dataclass
 from itertools import chain
 from functools import partial
 from pathlib import Path
@@ -11,7 +9,7 @@ import numpy as np
 import torch
 import torch.utils.data
 
-from openwebtext import tokenization
+from Modules.Pretraining.openwebtext import tokenization
 
 
 class ExampleBuilder:

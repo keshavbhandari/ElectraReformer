@@ -16,10 +16,10 @@ import torch
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data.dataloader import DataLoader
 
-from electra_pytorch import Electra
+from Modules.Electra.electra_pytorch import Electra
 
-from openwebtext import arg
-from openwebtext.dataset import load_owt, new_tokenizer, wrap_example_builder
+from Modules.Pretraining.openwebtext import arg
+from Modules.Pretraining.openwebtext.dataset import load_owt, new_tokenizer, wrap_example_builder
 
 logger = logging.getLogger(__name__)
 
