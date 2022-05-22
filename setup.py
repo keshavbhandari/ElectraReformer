@@ -9,7 +9,7 @@ setup(
     version='0.0.1',
     author="Keshav Bhandari",
     author_email='keshavbhandari@gmail.com',
-    url='https://github.com/keshavbhandari/Efficient-Pretraining-Of-Transformers',
+    url='https://github.com/keshavbhandari/ElectraReformer',
     keywords=[
         'transformers',
         'artificial intelligence',
