@@ -34,6 +34,7 @@ def create_tokenizer(vocab_file, do_lower_case=True):
 def preprocess_owt(tokenizer, src_dir, tmp_dir, trg_dir, n_dataset_building_processes, n_tensors_per_file, max_seq_length=None):
     # Preamble
     logger.info(f'Writing features to {trg_dir}.')
+    print(f'Writing features to {trg_dir}.')
     os.makedirs(trg_dir, exist_ok=False)
 
     # Crunch files
@@ -48,6 +49,7 @@ def preprocess_owt(tokenizer, src_dir, tmp_dir, trg_dir, n_dataset_building_proc
     ]
 
     logger.info(f'Processing {len(archives)} archives.')
+    print(f'Processing {len(archives)} archives.')
     assert len(archives) > 0
 
     if n_dataset_building_processes == 1:
@@ -85,9 +87,11 @@ def preprocess_owt_job(tokenizer, src_dir, tmp_dir, trg_dir, job_archives, n_ten
     for archive_id, archive in enumerate(job_archives[job_id]):
         if os.path.isdir(src_dir / archive):
             logger.info(f'Ignoring rogue directory {src_dir / archive}.')
+            print(f'Ignoring rogue directory {src_dir / archive}.')
             continue
 
         logger.info(f'Job {job_id}: Processing {archive_id}/{len(job_archives[job_id])} {src_dir / archive}.')
+        print(f'Job {job_id}: Processing {archive_id}/{len(job_archives[job_id])} {src_dir / archive}.')
 
         with tarfile.open(src_dir / archive) as t:
             extracted_archive = tmp_dir / f'{archive}-extracted'
