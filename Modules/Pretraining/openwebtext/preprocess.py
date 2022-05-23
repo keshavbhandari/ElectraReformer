@@ -131,7 +131,8 @@ class Args:
 
 
 def main():
-    args = arg.parse_to(Args)
+    # args = arg.parse_to(Args)
+    args = Args()
 
     logging.basicConfig(
         format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
