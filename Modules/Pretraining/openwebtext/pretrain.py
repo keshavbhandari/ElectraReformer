@@ -309,7 +309,8 @@ def main():
     copy_source(__file__, output_dir)
 
     # args
-    args = arg.parse_to(Args)
+    # args = arg.parse_to(Args)
+    args = Args()
     args.output_dir = output_dir
     args.exp_id = exp_id
 
