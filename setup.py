@@ -16,7 +16,7 @@ setup(
         'pretraining'
     ],
     install_requires=[],
-    packages=['src'],
+    packages=['Modules'],
     long_description=long_description,
     long_description_content_type='text.markdown',
     classifiers=['License :: OSI Approved :: MIT License'],
