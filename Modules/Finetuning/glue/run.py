@@ -669,7 +669,7 @@ def main(task='MRPC', seed=42, ckpt='output/pretrain/2020-08-28-02-41-37/ckpt/60
         cache_dir=args.cache_dir if args.cache_dir else None,
     )
 
-    from pretraining.openwebtext.dataset import new_tokenizer
+    from Modules.Pretraining.openwebtext.dataset import new_tokenizer
     tokenizer = wrap_tokenizer(new_tokenizer(args.vocab_path), pad_token='[PAD]')
 
     if args.local_rank == 0:
