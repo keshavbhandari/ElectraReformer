@@ -38,11 +38,11 @@ class Args:
     gpu_deterministic: arg.Bool = False
     gpu_mixed_precision: arg.Bool = False
     distributed_port: arg.Int = 8888
-    distributed_enabled: arg.Bool = True
+    distributed_enabled: arg.Bool = False
     distributed_world_size: arg.Int = 4
 
-    model_generator: arg.Str = 'pretraining/openwebtext/small_generator.json'
-    model_discriminator: arg.Str = 'pretraining/openwebtext/small_discriminator.json'
+    model_generator: arg.Str = '/content/ElectraReformer/Modules/Pretraining/openwebtext/small_generator.json'
+    model_discriminator: arg.Str = '/content/ElectraReformer/Modules/Pretraining/openwebtext/small_discriminator.json'
     model_mask_prob: arg.Float = 0.15
 
     opt_lr: arg.Float = 5e-4
