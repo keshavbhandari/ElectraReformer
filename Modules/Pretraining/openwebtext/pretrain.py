@@ -43,6 +43,7 @@ class Args:
 
     model_generator: arg.Str = '/content/ElectraReformer/Modules/Pretraining/openwebtext/small_generator.json'
     model_discriminator: arg.Str = '/content/ElectraReformer/Modules/Pretraining/openwebtext/small_discriminator.json'
+    use_electra_reformer = True
     model_mask_prob: arg.Float = 0.15
 
     opt_lr: arg.Float = 5e-4
@@ -139,22 +140,58 @@ def train(rank, args):
         def forward(self, *args, **kwargs):
             return self.adaptee(*args, **kwargs)[0]
 
-    from transformers import AutoConfig, ElectraForMaskedLM, ElectraForPreTraining
+    if args.use_electra_reformer:
+        from Modules.Reformer import ReformerLM
 
-    generator = ElectraForMaskedLM(AutoConfig.from_pretrained(args.model_generator))
-    discriminator = ElectraForPreTraining(AutoConfig.from_pretrained(args.model_discriminator))
+        generator = ReformerLM(
+            num_tokens=vocab_size,
+            emb_dim=128,
+            dim=256,  # smaller hidden dimension
+            heads=4,  # less heads
+            ff_mult=2,  # smaller feed forward intermediate dimension
+            dim_head=64,
+            depth=12,
+            max_seq_len=1024
+        )
 
-    tie_weights(generator, discriminator)
+        discriminator = ReformerLM(
+            num_tokens=vocab_size,
+            emb_dim=128,
+            dim=1024,
+            dim_head=64,
+            heads=16,
+            depth=12,
+            ff_mult=4,
+            max_seq_len=1024
+        )
 
-    model = to_distributed_model(Electra(
-        LogitsAdapter(generator),
-        LogitsAdapter(discriminator),
-        num_tokens = vocab_size,
-        mask_token_id = mask_token_id,
-        pad_token_id = pad_token_id,
-        mask_prob = args.model_mask_prob,
-        mask_ignore_token_ids = [tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
-        random_token_prob = 0.0).to(device))
+        model = to_distributed_model(Electra(
+            LogitsAdapter(generator),
+            LogitsAdapter(discriminator),
+            num_tokens=vocab_size,
+            mask_token_id=mask_token_id,
+            pad_token_id=pad_token_id,
+            mask_prob=args.model_mask_prob,
+            mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
+            random_token_prob=0.0).to(device))
+
+    else:
+        from transformers import AutoConfig, ElectraForMaskedLM, ElectraForPreTraining
+
+        generator = ElectraForMaskedLM(AutoConfig.from_pretrained(args.model_generator))
+        discriminator = ElectraForPreTraining(AutoConfig.from_pretrained(args.model_discriminator))
+
+        tie_weights(generator, discriminator)
+
+        model = to_distributed_model(Electra(
+            LogitsAdapter(generator),
+            LogitsAdapter(discriminator),
+            num_tokens = vocab_size,
+            mask_token_id = mask_token_id,
+            pad_token_id = pad_token_id,
+            mask_prob = args.model_mask_prob,
+            mask_ignore_token_ids = [tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
+            random_token_prob = 0.0).to(device))
 
 
     #######################
