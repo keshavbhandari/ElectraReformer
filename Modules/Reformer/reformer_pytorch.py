@@ -789,7 +789,8 @@ class ReformerLM(nn.Module):
                  num_mem_kv=0, one_value_head=False, emb_dim=None, return_embeddings=False,
                  weight_tie_embedding=False, fixed_position_emb=False, absolute_position_emb=False,
                  axial_position_emb=False, axial_position_shape=None, n_local_attn_heads=0,
-                 pkm_layers=tuple(), pkm_num_keys=128, emb_type='default', num_collisions=5):
+                 pkm_layers=tuple(), pkm_num_keys=128, emb_type='default', num_collisions=5,
+                 electra_discriminator=False):
         super().__init__()
         emb_dim = default(emb_dim, dim)
         self.max_seq_len = max_seq_len
@@ -835,12 +836,20 @@ class ReformerLM(nn.Module):
             self.out = Identity()
             return
 
-        self.out = nn.Sequential(
-            nn.Linear(dim, emb_dim) if emb_dim != dim else Identity(),
-            nn.Linear(emb_dim, num_tokens) if not weight_tie_embedding else MatrixMultiply(self.token_emb.weight,
-                                                                                           transpose=True,
-                                                                                           normalize=True)
-        )
+        if electra_discriminator:
+            self.out = nn.Sequential(
+                nn.Linear(dim, emb_dim) if emb_dim != dim else Identity(),
+                nn.Linear(emb_dim, 1) if not weight_tie_embedding else MatrixMultiply(self.token_emb.weight,
+                                                                                              transpose=True,
+                                                                                              normalize=True)
+            )
+        else:
+            self.out = nn.Sequential(
+                nn.Linear(dim, emb_dim) if emb_dim != dim else Identity(),
+                nn.Linear(emb_dim, num_tokens) if not weight_tie_embedding else MatrixMultiply(self.token_emb.weight,
+                                                                                              transpose=True,
+                                                                                              normalize=True)
+            )
 
     def forward(self, x, **kwargs):
         x = self.token_emb(x)

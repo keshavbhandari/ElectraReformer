@@ -151,7 +151,7 @@ def train(rank, args):
             ff_mult=2,  # smaller feed forward intermediate dimension
             dim_head=64,
             depth=12,
-            max_seq_len=1024
+            max_seq_len=128,
         )
 
         discriminator = ReformerLM(
@@ -162,18 +162,29 @@ def train(rank, args):
             heads=16,
             depth=12,
             ff_mult=4,
-            max_seq_len=1024
+            max_seq_len=128,
+            electra_discriminator=True
         )
 
         model = to_distributed_model(Electra(
-            LogitsAdapter(generator),
-            LogitsAdapter(discriminator),
+            generator,
+            discriminator,
             num_tokens=vocab_size,
             mask_token_id=mask_token_id,
             pad_token_id=pad_token_id,
             mask_prob=args.model_mask_prob,
             mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
             random_token_prob=0.0).to(device))
+
+        # model = to_distributed_model(Electra(
+        #     LogitsAdapter(generator),
+        #     LogitsAdapter(discriminator),
+        #     num_tokens=vocab_size,
+        #     mask_token_id=mask_token_id,
+        #     pad_token_id=pad_token_id,
+        #     mask_prob=args.model_mask_prob,
+        #     mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
+        #     random_token_prob=0.0).to(device))
 
     else:
         from transformers import AutoConfig, ElectraForMaskedLM, ElectraForPreTraining
