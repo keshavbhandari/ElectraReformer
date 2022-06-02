@@ -23,6 +23,11 @@ from Modules.Pretraining.openwebtext.dataset import load_owt, new_tokenizer, wra
 
 logger = logging.getLogger(__name__)
 
+from torch.utils.tensorboard import SummaryWriter
+
+writer = SummaryWriter()
+
+
 ########################################################################################################
 ## args
 
@@ -48,18 +53,17 @@ class Args:
 
     opt_lr: arg.Float = 5e-4
     opt_batch_size: arg.Int = 128 // (distributed_world_size if distributed_enabled else 1)
-    opt_warmup_steps: arg.Int = 10_000
+    opt_warmup_steps: arg.Int = 1000
     opt_num_training_steps: arg.Int = 200_000
 
     step_log: arg.Int = 10
-    step_ckpt: arg.Int = 10_000
+    step_ckpt: arg.Int = 500
 
 
 ########################################################################################################
 ## train
 
 def train(rank, args):
-
     #######################
     ## distributed
 
@@ -76,7 +80,6 @@ def train(rank, args):
 
     is_master = True if not args.distributed_enabled else args.distributed_enabled and rank == 0
 
-
     #######################
     ## preamble
 
@@ -89,13 +92,14 @@ def train(rank, args):
 
     setup_logging(filename=f'{output_dir}/output.log', console=is_master)
 
-
     #######################
     ## dataset
 
     tokenizer = new_tokenizer(vocab_file=args.data_vocab_file)
     vocab_size = len(tokenizer.vocab)
-    ds_train = wrap_example_builder(dataset=load_owt(owt_dir=args.data_dir, n_tensors_per_file=args.data_n_tensors_per_file), vocab=tokenizer.vocab, max_length=args.data_max_seq_length)
+    ds_train = wrap_example_builder(
+        dataset=load_owt(owt_dir=args.data_dir, n_tensors_per_file=args.data_n_tensors_per_file), vocab=tokenizer.vocab,
+        max_length=args.data_max_seq_length)
 
     pad_token_id = tokenizer.vocab['[PAD]']
     mask_token_id = tokenizer.vocab['[MASK]']
@@ -108,9 +112,12 @@ def train(rank, args):
     assert mask_token_id == 103
 
     def collate_batch(examples):
-        input_ids = torch.nn.utils.rnn.pad_sequence([example['input_ids'] for example in examples], batch_first=True, padding_value=pad_token_id)
-        input_mask = torch.nn.utils.rnn.pad_sequence([example['input_mask'] for example in examples], batch_first=True, padding_value=pad_token_id)
-        segment_ids = torch.nn.utils.rnn.pad_sequence([example['segment_ids'] for example in examples], batch_first=True, padding_value=pad_token_id)
+        input_ids = torch.nn.utils.rnn.pad_sequence([example['input_ids'] for example in examples], batch_first=True,
+                                                    padding_value=pad_token_id)
+        input_mask = torch.nn.utils.rnn.pad_sequence([example['input_mask'] for example in examples], batch_first=True,
+                                                     padding_value=pad_token_id)
+        segment_ids = torch.nn.utils.rnn.pad_sequence([example['segment_ids'] for example in examples],
+                                                      batch_first=True, padding_value=pad_token_id)
         return input_ids, input_mask, segment_ids
 
     def cycle(iterable):
@@ -120,12 +127,13 @@ def train(rank, args):
 
     ds_train_loader = iter(cycle(DataLoader(ds_train, batch_size=args.opt_batch_size, collate_fn=collate_batch)))
 
-
     #######################
     ## model
 
     def to_distributed_model(model):
-        return model if not args.distributed_enabled else torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=True)
+        return model if not args.distributed_enabled else torch.nn.parallel.DistributedDataParallel(model,
+                                                                                                    device_ids=[rank],
+                                                                                                    find_unused_parameters=True)
 
     def tie_weights(generator, discriminator):
         generator.electra.embeddings.word_embeddings = discriminator.electra.embeddings.word_embeddings
@@ -197,13 +205,12 @@ def train(rank, args):
         model = to_distributed_model(Electra(
             LogitsAdapter(generator),
             LogitsAdapter(discriminator),
-            num_tokens = vocab_size,
-            mask_token_id = mask_token_id,
-            pad_token_id = pad_token_id,
-            mask_prob = args.model_mask_prob,
-            mask_ignore_token_ids = [tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
-            random_token_prob = 0.0).to(device))
-
+            num_tokens=vocab_size,
+            mask_token_id=mask_token_id,
+            pad_token_id=pad_token_id,
+            mask_prob=args.model_mask_prob,
+            mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
+            random_token_prob=0.0).to(device))
 
     #######################
     ## optimizer
@@ -213,6 +220,7 @@ def train(rank, args):
             learning_rate = max(0.0, 1. - (float(current_step) / float(num_training_steps)))
             learning_rate *= min(1.0, float(current_step) / float(num_warmup_steps))
             return learning_rate
+
         return LambdaLR(optimizer, lr_lambda, last_epoch)
 
     def get_params_without_weight_decay_ln(named_params, weight_decay):
@@ -229,17 +237,18 @@ def train(rank, args):
         ]
         return optimizer_grouped_parameters
 
-    optimizer = torch.optim.AdamW(get_params_without_weight_decay_ln(model.named_parameters(), weight_decay=0.1), lr=args.opt_lr, betas=(0.9, 0.999), eps=1e-08)
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.opt_warmup_steps, num_training_steps=args.opt_num_training_steps)
+    optimizer = torch.optim.AdamW(get_params_without_weight_decay_ln(model.named_parameters(), weight_decay=0.1),
+                                  lr=args.opt_lr, betas=(0.9, 0.999), eps=1e-08)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.opt_warmup_steps,
+                                                num_training_steps=args.opt_num_training_steps)
     scaler = torch.cuda.amp.GradScaler(enabled=args.gpu_mixed_precision)
-
 
     #######################
     ## train
 
     t, steps_s, eta_m = time(), 0., 0
 
-    for step in range(args.opt_num_training_steps+1):
+    for step in range(args.opt_num_training_steps + 1):
         input_ids, input_mask, segment_ids = next(ds_train_loader)
 
         input_ids = input_ids.to(device)
@@ -251,7 +260,9 @@ def train(rank, args):
         optimizer.zero_grad()
 
         with torch.cuda.amp.autocast(enabled=args.gpu_mixed_precision):
-            loss, loss_mlm, loss_disc, acc_gen, acc_disc, disc_labels, disc_pred = model(input_ids, attention_mask=input_mask, token_type_ids=segment_ids)
+            loss, loss_mlm, loss_disc, acc_gen, acc_disc, disc_labels, disc_pred = model(input_ids,
+                                                                                         attention_mask=input_mask,
+                                                                                         token_type_ids=segment_ids)
 
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
@@ -276,6 +287,9 @@ def train(rank, args):
             sep = ' ' * 2
             logger.info(sep.join([f'{k}: {v[1].format(v[0])}' for (k, v) in metrics.items()]))
 
+            for (k, v) in metrics.items():
+                writer.add_scalar(k, v[0], step)
+
         if step > 0 and step % 100 == 0:
             t2 = time()
             steps_s = 100. / (t2 - t)
@@ -283,11 +297,20 @@ def train(rank, args):
             t = t2
 
         if step % 200 == 0:
-            logger.info(np.array2string(disc_labels[0].cpu().numpy(), threshold=sys.maxsize, max_line_width=sys.maxsize))
+            logger.info(
+                np.array2string(disc_labels[0].cpu().numpy(), threshold=sys.maxsize, max_line_width=sys.maxsize))
             logger.info(np.array2string(disc_pred[0].cpu().numpy(), threshold=sys.maxsize, max_line_width=sys.maxsize))
 
         if step > 0 and step % args.step_ckpt == 0 and is_master:
-            discriminator.electra.save_pretrained(f'{args.output_dir}/ckpt/{step}')
+            if args.use_electra_reformer:
+                os.makedirs(f'{args.output_dir}/ckpt/{step}/', exist_ok=True)
+                torch.save(discriminator.state_dict(),
+                           f'{args.output_dir}/ckpt/{step}/Electra_Reformer_Discriminator.pth')
+            else:
+                discriminator.electra.save_pretrained(f'{args.output_dir}/ckpt/{step}')
+
+    writer.flush()
+
 
 ########################################################################################################
 ## preamble
@@ -348,7 +371,6 @@ def copy_source(file, output_dir):
 ## main
 
 def main():
-
     # preamble
     exp_id = get_exp_id(__file__)
     output_dir = get_output_dir(exp_id)
