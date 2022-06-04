@@ -184,16 +184,6 @@ def train(rank, args):
             mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
             random_token_prob=0.0).to(device))
 
-        # model = to_distributed_model(Electra(
-        #     LogitsAdapter(generator),
-        #     LogitsAdapter(discriminator),
-        #     num_tokens=vocab_size,
-        #     mask_token_id=mask_token_id,
-        #     pad_token_id=pad_token_id,
-        #     mask_prob=args.model_mask_prob,
-        #     mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
-        #     random_token_prob=0.0).to(device))
-
     else:
         from transformers import AutoConfig, ElectraForMaskedLM, ElectraForPreTraining
 
