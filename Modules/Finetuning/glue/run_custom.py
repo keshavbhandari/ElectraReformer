@@ -682,20 +682,6 @@ def main(task='MRPC', seed=42, ckpt='output/pretrain/2020-08-28-02-41-37/ckpt/60
     if args.local_rank not in [-1, 0]:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
 
-    # from transformers import AutoConfig, AutoModelForSequenceClassification
-    # args.model_type = args.model_type.lower()
-    # config = AutoConfig.from_pretrained(
-    #     args.model_name_or_path,
-    #     num_labels=num_labels,
-    #     finetuning_task=args.task_name,
-    #     cache_dir=args.cache_dir if args.cache_dir else None,
-    # )
-    # model = AutoModelForSequenceClassification.from_pretrained(
-    #     args.model_name_or_path,
-    #     from_tf=bool(".ckpt" in args.model_name_or_path),
-    #     config=config,
-    #     cache_dir=args.cache_dir if args.cache_dir else None,
-    # )
     from Modules.Pretraining.openwebtext.dataset import new_tokenizer
     tokenizer = new_tokenizer(args.vocab_path)
     vocab_size = len(tokenizer.vocab)
@@ -710,11 +696,9 @@ def main(task='MRPC', seed=42, ckpt='output/pretrain/2020-08-28-02-41-37/ckpt/60
         heads=16,
         depth=12,
         ff_mult=4,
-        max_seq_len=128,
+        max_seq_len=args.max_seq_length,
         electra_discriminator=True
     )
-
-    # checkpoint_file = "/content/drive/MyDrive/Research/NLP/Efficient_Pretraining/Trained_Models/Electra_Reformer_10K/Electra_Reformer_Discriminator.pth"
 
     if os.path.exists(args.model_name_or_path):
         checkpoint = torch.load(args.model_name_or_path)
@@ -722,7 +706,7 @@ def main(task='MRPC', seed=42, ckpt='output/pretrain/2020-08-28-02-41-37/ckpt/60
     else:
         assert os.path.exists(args.model_name_or_path), "File checkpoint path is incorrect"
 
-    model = Electra_Reformer_FineTuning(discriminator, input_length=128, num_labels=2)
+    model = Electra_Reformer_FineTuning(discriminator, input_length=args.max_seq_length, num_labels=2)
 
     if args.local_rank == 0:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
@@ -750,6 +734,8 @@ def main(task='MRPC', seed=42, ckpt='output/pretrain/2020-08-28-02-41-37/ckpt/60
             model.module if hasattr(model, "module") else model
         )  # Take care of distributed/parallel training
         # model_to_save.save_pretrained(args.output_dir)
+        os.makedirs(f'{args.output_dir}/', exist_ok=True)
+        torch.save(model.state_dict(), f'{args.output_dir}/Electra_Reformer_Fine_Tuned.pth')
         tokenizer.save_pretrained(args.output_dir)
 
         # Good practice: save your training arguments together with the trained model
