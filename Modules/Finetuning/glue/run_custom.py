@@ -36,6 +36,8 @@ from processors import glue_output_modes as output_modes
 from processors import glue_processors as processors
 from processors import glue_tasks_num_labels as task_num_labels
 
+from Modules.Reformer import ReformerLM
+
 logger = logging.getLogger(__name__)
 
 
@@ -240,6 +242,8 @@ def train(args, train_dataset, model, tokenizer):
         epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0],
     )
     set_seed(args)  # Added here for reproductibility
+    loss_fn = nn.CrossEntropyLoss(reduction="mean")
+
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         for step, batch in enumerate(epoch_iterator):
@@ -364,6 +368,8 @@ def evaluate(args, model, tokenizer, prefix=""):
         nb_eval_steps = 0
         preds = None
         out_label_ids = None
+        loss_fn = nn.CrossEntropyLoss(reduction="mean")
+
         for batch in tqdm(eval_dataloader, desc="Evaluating"):
             model.eval()
             batch = tuple(t.to(args.device) for t in batch)
@@ -376,7 +382,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                     )  # XLM, DistilBERT, RoBERTa, and XLM-RoBERTa don't use segment_ids
                 logits = model(inputs['input_ids'], attention_mask=inputs['attention_mask'],
                                 token_type_ids=inputs['token_type_ids'])
-                tmp_eval_loss = loss_fn(outputs, inputs['labels'])
+                tmp_eval_loss = loss_fn(logits, inputs['labels'])
 
                 eval_loss += tmp_eval_loss.mean().item()
             nb_eval_steps += 1
@@ -571,7 +577,7 @@ def main(task='MRPC', seed=42, ckpt='output/pretrain/2020-08-28-02-41-37/ckpt/60
         default=1,
         help="Number of updates steps to accumulate before performing a backward/update pass.",
     )
-    parser.add_argument("--learning_rate", default=2e-5, type=float, help="The initial learning rate for Adam.")
+    parser.add_argument("--learning_rate", default=5e-6, type=float, help="The initial learning rate for Adam.")
     parser.add_argument("--weight_decay", default=0.0, type=float, help="Weight decay if we apply some.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
@@ -691,8 +697,9 @@ def main(task='MRPC', seed=42, ckpt='output/pretrain/2020-08-28-02-41-37/ckpt/60
     #     cache_dir=args.cache_dir if args.cache_dir else None,
     # )
     from Modules.Pretraining.openwebtext.dataset import new_tokenizer
-    tokenizer = wrap_tokenizer(new_tokenizer(args.vocab_path), pad_token='[PAD]')
+    tokenizer = new_tokenizer(args.vocab_path)
     vocab_size = len(tokenizer.vocab)
+    tokenizer = wrap_tokenizer(tokenizer, pad_token='[PAD]')
     print("Vocab Size Used:", vocab_size)
 
     discriminator = ReformerLM(
@@ -742,14 +749,14 @@ def main(task='MRPC', seed=42, ckpt='output/pretrain/2020-08-28-02-41-37/ckpt/60
         model_to_save = (
             model.module if hasattr(model, "module") else model
         )  # Take care of distributed/parallel training
-        model_to_save.save_pretrained(args.output_dir)
+        # model_to_save.save_pretrained(args.output_dir)
         tokenizer.save_pretrained(args.output_dir)
 
         # Good practice: save your training arguments together with the trained model
         torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
 
         # Load a trained model and vocabulary that you have fine-tuned
-        model = model_to_save
+        # model = model_to_save
         # TODO(nijkamp): we ignore model serialization
         # model = AutoModelForSequenceClassification.from_pretrained(args.output_dir)
         # tokenizer = AutoTokenizer.from_pretrained(args.output_dir)
