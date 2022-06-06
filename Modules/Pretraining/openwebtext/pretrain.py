@@ -36,7 +36,7 @@ class Args:
     data_dir: arg.Str = 'data/openwebtext_features'
     data_vocab_file: arg.Str = 'data/vocab.txt'
     data_n_tensors_per_file: arg.Int = 2048
-    data_max_seq_length: arg.Int = 128
+    data_max_seq_length: arg.Int = 512
 
     gpu: arg.Int = 0
     gpu_enabled: arg.Bool = True
@@ -54,7 +54,7 @@ class Args:
 
     opt_lr: arg.Float = 5e-4
     opt_batch_size: arg.Int = 128 // (distributed_world_size if distributed_enabled else 1)
-    opt_warmup_steps: arg.Int = 1000
+    opt_warmup_steps: arg.Int = 10000
     opt_num_training_steps: arg.Int = 200_000
 
     step_log: arg.Int = 10
@@ -160,7 +160,7 @@ def train(rank, args):
             ff_mult=2,  # smaller feed forward intermediate dimension
             dim_head=64,
             depth=12,
-            max_seq_len=128,
+            max_seq_len=args.data_max_seq_length,
         )
 
         discriminator = ReformerLM(
@@ -171,7 +171,7 @@ def train(rank, args):
             heads=16,
             depth=12,
             ff_mult=4,
-            max_seq_len=128,
+            max_seq_len=args.data_max_seq_length,
             electra_discriminator=True
         )
 
@@ -190,19 +190,22 @@ def train(rank, args):
 
         generator = FastTransformer(
             num_tokens=vocab_size,
-            dim=512,
-            depth=2,
-            max_seq_len=1024,
+            dim=256,
+            depth=4,
+            heads=4,
+            max_seq_len=args.data_max_seq_length,
             absolute_pos_emb=True
             # default uses relative positional encoding, but if that isn't working, then turn on absolute positional embedding by setting this to True
         )
 
         discriminator = FastTransformer(
             num_tokens=vocab_size,
-            dim=512,
-            depth=2,
-            max_seq_len=1024,
-            absolute_pos_emb=True
+            dim=1024,
+            depth=12,
+            heads=16,
+            max_seq_len=args.data_max_seq_length,
+            absolute_pos_emb=True,
+            electra_discriminator=True
             # default uses relative positional encoding, but if that isn't working, then turn on absolute positional embedding by setting this to True
         )
 
@@ -326,10 +329,10 @@ def train(rank, args):
             logger.info(np.array2string(disc_pred[0].cpu().numpy(), threshold=sys.maxsize, max_line_width=sys.maxsize))
 
         if step > 0 and step % args.step_ckpt == 0 and is_master:
-            if args.use_electra_reformer:
+            if args.use_electra_reformer or argsl.use_fastformer:
                 os.makedirs(f'{args.output_dir}/ckpt/{step}/', exist_ok=True)
                 torch.save(discriminator.state_dict(),
-                           f'{args.output_dir}/ckpt/{step}/Electra_Reformer_Discriminator.pth')
+                           f'{args.output_dir}/ckpt/{step}/Electra_Discriminator.pth')
             else:
                 discriminator.electra.save_pretrained(f'{args.output_dir}/ckpt/{step}')
 
