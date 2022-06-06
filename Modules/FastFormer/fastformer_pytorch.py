@@ -158,6 +158,7 @@ class FastTransformer(nn.Module):
         dim_head = 64,
         ff_mult = 4,
         absolute_pos_emb = False,
+        segment_emb=True,
         emb_type='default',
         num_collisions=5
     ):
@@ -174,8 +175,10 @@ class FastTransformer(nn.Module):
             assert emb_type in ['default', 'qr', 'md'], 'emb_type not valid!'
 
         # positional embeddings
-
         self.abs_pos_emb = nn.Embedding(max_seq_len, dim) if absolute_pos_emb else None
+
+        # segment embeddings
+        self.segment_emb = nn.Embedding(2, dim) if segment_emb else None
 
         layer_pos_emb = None
         if not absolute_pos_emb:
@@ -212,7 +215,8 @@ class FastTransformer(nn.Module):
     def forward(
         self,
         x,
-        mask = None
+        mask = None,
+        segment = None
     ):
         n, device = x.shape[1], x.device
         x = self.token_emb(x)
@@ -220,6 +224,10 @@ class FastTransformer(nn.Module):
         if exists(self.abs_pos_emb):
             pos_emb = self.abs_pos_emb(torch.arange(n, device = device))
             x = x + rearrange(pos_emb, 'n d -> () n d')
+
+        if exists(self.segment_emb) and segment:
+            seg_emb = self.segment_emb(segment)
+            x = x + seg_emb
 
         for attn, ff in self.layers:
             x = attn(x, mask = mask) + x

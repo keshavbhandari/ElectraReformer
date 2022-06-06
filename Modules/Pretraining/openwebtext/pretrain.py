@@ -48,7 +48,8 @@ class Args:
 
     model_generator: arg.Str = '/content/ElectraReformer/Modules/Pretraining/openwebtext/small_generator.json'
     model_discriminator: arg.Str = '/content/ElectraReformer/Modules/Pretraining/openwebtext/small_discriminator.json'
-    use_electra_reformer = True
+    use_electra_reformer: arg.Bool = False
+    use_fastformer: arg.Bool = True
     model_mask_prob: arg.Float = 0.15
 
     opt_lr: arg.Float = 5e-4
@@ -183,6 +184,39 @@ def train(rank, args):
             mask_prob=args.model_mask_prob,
             mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
             random_token_prob=0.0).to(device))
+
+    elif use_fastformer:
+        from Modules.FastFormer.fastformer_pytorch import FastTransformer
+
+        generator = FastTransformer(
+            num_tokens=vocab_size,
+            dim=512,
+            depth=2,
+            max_seq_len=1024,
+            absolute_pos_emb=True
+            # default uses relative positional encoding, but if that isn't working, then turn on absolute positional embedding by setting this to True
+        )
+
+        discriminator = FastTransformer(
+            num_tokens=vocab_size,
+            dim=512,
+            depth=2,
+            max_seq_len=1024,
+            absolute_pos_emb=True
+            # default uses relative positional encoding, but if that isn't working, then turn on absolute positional embedding by setting this to True
+        )
+
+        model = to_distributed_model(Electra(
+            generator,
+            discriminator,
+            num_tokens=vocab_size,
+            mask_token_id=mask_token_id,
+            pad_token_id=pad_token_id,
+            mask_prob=args.model_mask_prob,
+            mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
+            random_token_prob=0.0,
+            use_attention_mask=True,
+            use_segment_token=True).to(device))
 
     else:
         from transformers import AutoConfig, ElectraForMaskedLM, ElectraForPreTraining

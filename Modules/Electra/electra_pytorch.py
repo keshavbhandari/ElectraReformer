@@ -115,7 +115,10 @@ class Electra(nn.Module):
         mask_ignore_token_ids = [],
         disc_weight = 50.,
         gen_weight = 1.,
-        temperature = 1.):
+        temperature = 1.,
+        use_attention_mask = False,
+        use_segment_token = False
+    ):
         super().__init__()
 
         self.generator = generator
@@ -145,6 +148,9 @@ class Electra(nn.Module):
         # loss weights
         self.disc_weight = disc_weight
         self.gen_weight = gen_weight
+
+        self.use_attention_mask = use_attention_mask
+        self.use_segment_token = use_segment_token
 
 
     def forward(self, input, **kwargs):
@@ -187,7 +193,12 @@ class Electra(nn.Module):
         masked_input = masked_input.masked_fill(masking_mask * replace_prob, self.mask_token_id)
 
         # get generator output and get mlm loss
-        logits = self.generator(masked_input, **kwargs)
+        if self.use_attention_mask and self.use_segment_token:
+            attention_mask = kwargs['attention_mask']
+            segment_token = kwargs['token_type_ids']
+            logits = self.generator(masked_input, attention_mask, segment_token, **kwargs)
+        else:
+            logits = self.generator(masked_input, **kwargs)
 
         mlm_loss = F.cross_entropy(
             logits.transpose(1, 2),
@@ -212,7 +223,12 @@ class Electra(nn.Module):
         non_padded_indices = torch.nonzero(input != self.pad_token_id, as_tuple=True)
 
         # get discriminator output and binary cross entropy loss
-        disc_logits = self.discriminator(disc_input, **kwargs)
+        if self.use_attention_mask and self.use_segment_token:
+            attention_mask = kwargs['attention_mask']
+            segment_token = kwargs['token_type_ids']
+            disc_logits = self.discriminator(disc_input, attention_mask, segment_token, **kwargs)
+        else:
+            disc_logits = self.discriminator(disc_input, **kwargs)
         disc_logits = disc_logits.reshape_as(disc_labels)
 
         disc_loss = F.binary_cross_entropy_with_logits(
