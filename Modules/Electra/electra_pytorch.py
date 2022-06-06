@@ -196,7 +196,7 @@ class Electra(nn.Module):
         if self.use_attention_mask and self.use_segment_token:
             attention_mask = kwargs['attention_mask']
             segment_token = kwargs['token_type_ids']
-            logits = self.generator(masked_input, attention_mask, segment_token, **kwargs)
+            logits = self.generator(masked_input, attention_mask, segment_token)
         else:
             logits = self.generator(masked_input, **kwargs)
 
@@ -226,7 +226,7 @@ class Electra(nn.Module):
         if self.use_attention_mask and self.use_segment_token:
             attention_mask = kwargs['attention_mask']
             segment_token = kwargs['token_type_ids']
-            disc_logits = self.discriminator(disc_input, attention_mask, segment_token, **kwargs)
+            disc_logits = self.discriminator(disc_input, attention_mask, segment_token)
         else:
             disc_logits = self.discriminator(disc_input, **kwargs)
         disc_logits = disc_logits.reshape_as(disc_labels)

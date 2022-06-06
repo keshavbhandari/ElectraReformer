@@ -160,7 +160,8 @@ class FastTransformer(nn.Module):
         absolute_pos_emb = False,
         segment_emb=True,
         emb_type='default',
-        num_collisions=5
+        num_collisions=5,
+        electra_discriminator = False
     ):
         super().__init__()
         if emb_type == "default":
@@ -205,12 +206,18 @@ class FastTransformer(nn.Module):
             block.fn.to_q_attn_logits = first_block.fn.to_q_attn_logits
             block.fn.to_k_attn_logits = first_block.fn.to_k_attn_logits
 
-        # to logits
-
-        self.to_logits = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, num_tokens)
-        )
+        if electra_discriminator:
+            # to logits
+            self.to_logits = nn.Sequential(
+                nn.LayerNorm(dim),
+                nn.Linear(dim, num_tokens)
+            )
+        else:
+            # to logits
+            self.to_logits = nn.Sequential(
+                nn.LayerNorm(dim),
+                nn.Linear(dim, num_tokens)
+            )
 
     def forward(
         self,
@@ -225,11 +232,12 @@ class FastTransformer(nn.Module):
             pos_emb = self.abs_pos_emb(torch.arange(n, device = device))
             x = x + rearrange(pos_emb, 'n d -> () n d')
 
-        if exists(self.segment_emb) and segment:
+        if exists(self.segment_emb) and segment is not None:
             seg_emb = self.segment_emb(segment)
             x = x + seg_emb
 
         for attn, ff in self.layers:
+            mask = mask.bool()
             x = attn(x, mask = mask) + x
             x = ff(x) + x
 

@@ -185,7 +185,7 @@ def train(rank, args):
             mask_ignore_token_ids=[tokenizer.vocab['[CLS]'], tokenizer.vocab['[SEP]']],
             random_token_prob=0.0).to(device))
 
-    elif use_fastformer:
+    elif args.use_fastformer:
         from Modules.FastFormer.fastformer_pytorch import FastTransformer
 
         generator = FastTransformer(
