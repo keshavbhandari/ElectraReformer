@@ -210,7 +210,7 @@ class FastTransformer(nn.Module):
             # to logits
             self.to_logits = nn.Sequential(
                 nn.LayerNorm(dim),
-                nn.Linear(dim, num_tokens)
+                nn.Linear(dim, 1)
             )
         else:
             # to logits

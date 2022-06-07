@@ -329,7 +329,7 @@ def train(rank, args):
             logger.info(np.array2string(disc_pred[0].cpu().numpy(), threshold=sys.maxsize, max_line_width=sys.maxsize))
 
         if step > 0 and step % args.step_ckpt == 0 and is_master:
-            if args.use_electra_reformer or argsl.use_fastformer:
+            if args.use_electra_reformer or args.use_fastformer:
                 os.makedirs(f'{args.output_dir}/ckpt/{step}/', exist_ok=True)
                 torch.save(discriminator.state_dict(),
                            f'{args.output_dir}/ckpt/{step}/Electra_Discriminator.pth')
